@@ -1,0 +1,24 @@
+# Next.js
+frontend/.next/
+
+# Node
+frontend/node_modules/
+
+# Python
+__pycache__/
+*.pyc
+
+# Database
+*.db
+
+# Env
+.env
+.env.*
+backend/.env
+backend/.env.*
+frontend/.env.local
+frontend/.env.*
+
+!.env.example
+!backend/.env.example
+!frontend/.env.example
