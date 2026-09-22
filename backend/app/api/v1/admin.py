@@ -5,11 +5,15 @@ from typing import Dict, Any, List
 from app.db.session import get_db
 from app.models.user import User
 from app.core.config import settings
+from app.api.v1.auth import get_current_admin_user
 
 router = APIRouter(prefix="/admin", tags=["Admin Panel"])
 
 @router.get("/dashboard")
-def get_admin_dashboard(db: Session = Depends(get_db)) -> Dict[str, Any]:
+def get_admin_dashboard(
+    admin_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
     """
     Admin Dashboard KPIs:
     Total Users, Total Reports, Total Searches, Most Viewed Districts,
@@ -54,7 +58,10 @@ def get_admin_dashboard(db: Session = Depends(get_db)) -> Dict[str, Any]:
     }
 
 @router.get("/users")
-def get_users_list(db: Session = Depends(get_db)):
+def get_users_list(
+    admin_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
     """Retrieve list of registered users for administrative audit"""
     users = db.query(User).limit(50).all() if db else []
     return [

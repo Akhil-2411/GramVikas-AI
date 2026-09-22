@@ -26,7 +26,7 @@ export default function SwotAnalysisPage() {
 
 function SwotAnalysisContent() {
   const searchParams = useSearchParams();
-  const { district, village, marginCapital } = useAppStore();
+  const { district, mandal, village, marginCapital } = useAppStore();
 
   const titleParam = searchParams.get("title") || "Cold-Pressed Edible Oil Extraction Unit";
   const categoryParam = searchParams.get("category") || "Food Processing";
@@ -43,6 +43,8 @@ function SwotAnalysisContent() {
           title: businessTitle,
           category: categoryParam,
           district,
+          mandal,
+          village,
           margin_capital: marginCapital,
         });
         setSwotData(res);
@@ -53,7 +55,12 @@ function SwotAnalysisContent() {
       }
     }
     loadSwot();
-  }, [businessTitle, district, marginCapital]);
+  }, [businessTitle, district, mandal, village, marginCapital]);
+
+  const oppScore = swotData?.opportunity_score ?? 84.0;
+  const compScore = swotData?.competition_score ?? 42.0;
+  const riskScore = swotData?.risk_score ?? 28.0;
+  const viabilityScore = swotData?.financial_viability_score ?? 88.0;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -87,27 +94,27 @@ function SwotAnalysisContent() {
           <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Active Business Focus</span>
           <h2 className="text-xl font-bold text-slate-900">{businessTitle}</h2>
           <span className="text-xs text-slate-500">
-            Location: <b>{district}</b> {village ? `• ${village}` : ""} | Margin: <b>₹{marginCapital.toLocaleString("en-IN")}</b>
+            Location: <b>{district}</b> {mandal ? `• ${mandal}` : ""} {village ? `• ${village}` : ""} | Margin: <b>₹{marginCapital.toLocaleString("en-IN")}</b>
           </span>
         </div>
 
-        {/* 4 Score Badges */}
+        {/* 4 Dynamic Score Badges */}
         <div className="flex flex-wrap items-center gap-2.5">
-          <div className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
+          <div className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-center min-w-[90px]">
             <span className="text-[10px] text-emerald-600 font-semibold block">Opportunity</span>
-            <span className="text-sm font-black text-emerald-800">84 / 100</span>
+            <span className="text-sm font-black text-emerald-800">{oppScore} / 100</span>
           </div>
-          <div className="px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-center">
+          <div className="px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-center min-w-[90px]">
             <span className="text-[10px] text-blue-600 font-semibold block">Competition</span>
-            <span className="text-sm font-black text-blue-800">42 / 100</span>
+            <span className="text-sm font-black text-blue-800">{compScore} / 100</span>
           </div>
-          <div className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-center">
+          <div className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-center min-w-[90px]">
             <span className="text-[10px] text-amber-600 font-semibold block">Risk Score</span>
-            <span className="text-sm font-black text-amber-800">28 / 100</span>
+            <span className="text-sm font-black text-amber-800">{riskScore} / 100</span>
           </div>
-          <div className="px-3 py-1.5 rounded-xl bg-purple-50 border border-purple-200 text-center">
-            <span className="text-[10px] text-purple-600 font-semibold block">Financial Viability</span>
-            <span className="text-sm font-black text-purple-800">88%</span>
+          <div className="px-3 py-1.5 rounded-xl bg-purple-50 border border-purple-200 text-center min-w-[90px]">
+            <span className="text-[10px] text-purple-600 font-semibold block">Viability</span>
+            <span className="text-sm font-black text-purple-800">{viabilityScore}%</span>
           </div>
         </div>
       </div>

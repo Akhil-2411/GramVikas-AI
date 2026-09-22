@@ -3,8 +3,9 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, Lock, Mail, ArrowRight, CheckCircle2, Shield } from "lucide-react";
+import { Building2, Lock, Mail, ArrowRight, Shield, Sparkles } from "lucide-react";
 import { useAppStore } from "@/lib/store";
+import { loginUser, demoLogin, googleLoginUser } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("demo@gramvikas.ai");
   const [password, setPassword] = useState("Demo@1234");
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -20,52 +22,44 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!res.ok) {
-        // Fallback for instant offline UI demo
-        setAuth("demo-token-1234", {
-          id: "demo-user-1",
-          full_name: email.includes("admin") ? "MoSJE Admin" : "Ramesh Kumar (Entrepreneur)",
-          email: email,
-          role: email.includes("admin") ? "admin" : "entrepreneur",
-          language: "English",
-        });
-        router.push("/dashboard");
-        return;
-      }
-
-      const data = await res.json();
+      const data = await loginUser({ email, password });
       setAuth(data.access_token, data.user);
       router.push("/dashboard");
     } catch (err: any) {
-      // Fallback to enable immediate local demonstration
-      setAuth("demo-token-1234", {
-        id: "demo-user-1",
-        full_name: email.includes("admin") ? "MoSJE Admin" : "Ramesh Kumar (Entrepreneur)",
-        email: email,
-        role: email.includes("admin") ? "admin" : "entrepreneur",
-        language: "English",
-      });
-      router.push("/dashboard");
+      setError(err.message || "Invalid email or password. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = () => {
-    setAuth("google-oauth-token-sih", {
-      id: "google-user-1",
-      full_name: "Ramesh Kumar (Google)",
-      email: "ramesh.kumar@gmail.com",
-      role: "entrepreneur",
-      language: "English",
-    });
-    router.push("/dashboard");
+  const handleQuickDemo = async (role: "entrepreneur" | "admin") => {
+    setDemoLoading(role);
+    setError("");
+    try {
+      const data = await demoLogin(role);
+      setAuth(data.access_token, data.user);
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.message || "Demo login failed. Ensure backend server is running.");
+    } finally {
+      setDemoLoading(null);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    try {
+      const data = await googleLoginUser({
+        email: "entrepreneur.demo@gmail.com",
+        name: "Ramesh Kumar (Google)",
+      });
+      setAuth(data.access_token, data.user);
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.message || "Google authentication failed.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -81,10 +75,37 @@ export default function LoginPage() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
         <div className="bg-white py-8 px-6 shadow-xl shadow-slate-200/50 rounded-2xl border border-slate-200 sm:px-10">
           {error && (
-            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl">
-              {error}
+            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
+              <span>{error}</span>
             </div>
           )}
+
+          {/* Quick Demo 1-Click Access Buttons */}
+          <div className="mb-6 p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-200/80">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-900 mb-2">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+              <span>1-Click Evaluator & Demo Access</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleQuickDemo("entrepreneur")}
+                disabled={Boolean(demoLoading)}
+                className="py-2 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-sm transition text-center"
+              >
+                {demoLoading === "entrepreneur" ? "Connecting..." : "Demo Entrepreneur"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickDemo("admin")}
+                disabled={Boolean(demoLoading)}
+                className="py-2 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold shadow-sm transition text-center flex items-center justify-center gap-1"
+              >
+                <Shield className="w-3 h-3 text-amber-400" />
+                <span>{demoLoading === "admin" ? "Connecting..." : "MoSJE Admin"}</span>
+              </button>
+            </div>
+          </div>
 
           <form className="space-y-4" onSubmit={handleLogin}>
             <div>
@@ -127,7 +148,7 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full flex justify-center items-center gap-2 py-3 px-4 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 transition"
             >
-              {loading ? "Signing in..." : "Sign In to Dashboard"} <ArrowRight className="w-4 h-4" />
+              {loading ? "Authenticating..." : "Sign In to Dashboard"} <ArrowRight className="w-4 h-4" />
             </button>
           </form>
 
@@ -164,10 +185,6 @@ export default function LoginPage() {
               </Link>
             </p>
           </div>
-        </div>
-
-        <div className="mt-6 text-center text-xs text-slate-400">
-          Demo Accounts: <b>demo@gramvikas.ai</b> (Entrepreneur) or <b>admin@gramvikas.gov.in</b> (Admin)
         </div>
       </div>
     </div>

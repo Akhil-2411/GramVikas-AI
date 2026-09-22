@@ -34,6 +34,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mobileOpen, setMobileOpen] = useState(false);
   const {
     user,
+    token,
+    isAuthenticated,
     logout,
     district,
     mandal,
@@ -43,6 +45,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     searchQuery,
     setSearchQuery
   } = useAppStore();
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedToken = localStorage.getItem("gramvikas_token");
+      if (!token && !storedToken) {
+        router.push("/login");
+      }
+    }
+  }, [token, router]);
 
   const t = translations[language];
 

@@ -2,14 +2,17 @@ import os
 import pandas as pd
 from typing import Dict, Any, List, Optional
 from app.core.config import settings
+from app.db.session import SessionLocal
+from app.models.msme import DistrictMSME, MSMEEnterprise
 from app.schemas.all_schemas import (
     AnalyzeBusinessRequest,
     AnalyzeBusinessResponse,
     BusinessRecommendation
 )
 from app.services.swot_service import generate_swot
+from app.services.geo_service import geo_engine
 
-# Master rural & semi-urban enterprise templates with standard economics
+# Comprehensive Master Catalog of Rural & Semi-Urban Enterprises
 ENTERPRISE_CATALOG = [
     {
         "title": "Cold-Pressed Edible Oil Extraction Unit",
@@ -57,7 +60,7 @@ ENTERPRISE_CATALOG = [
         "min_capital": 25000.0,
         "base_investment": 250000.0,
         "margin_pct": 38.0,
-        "description": "Batch garment manufacturing and designer tailoring enterprise employing motorized stitching machines for festive wear and uniform contracts."
+        "description": "Batch garment manufacturing and designer tailoring enterprise employing motorized stitching machines for festive wear and school uniform contracts."
     },
     {
         "title": "Bio-Fertilizer & Vermicompost Production Unit",
@@ -74,6 +77,22 @@ ENTERPRISE_CATALOG = [
         "base_investment": 350000.0,
         "margin_pct": 30.0,
         "description": "Hydraulic heat-press machines shaping shed areca palm leaves into disposable tableware for catering firms and cultural events."
+    },
+    {
+        "title": "Solar Powered Cold Storage & Agri-Warehouse",
+        "category": "Agri-Tech & Allied",
+        "min_capital": 90000.0,
+        "base_investment": 900000.0,
+        "margin_pct": 29.0,
+        "description": "Decentralized micro cold room (5 MT capacity) powered by rooftop solar panels to prevent post-harvest distress sales of chillies, vegetables, and fruits."
+    },
+    {
+        "title": "Agro-Machinery Custom Hiring & Service Center",
+        "category": "Rural Services & Repair",
+        "min_capital": 70000.0,
+        "base_investment": 700000.0,
+        "margin_pct": 33.0,
+        "description": "Community equipment depot renting power weeders, seed drills, rotavators, and drone sprayers on hourly/acreage rates to marginal smallholders."
     },
     {
         "title": "Two-Wheeler Multi-Brand Service & Spares Hub",
@@ -112,7 +131,6 @@ class AdvisoryEngine:
             try:
                 df = pd.read_csv(csv_path)
                 df.columns = [c.strip() for c in df.columns]
-                # Filter for Telangana districts if present or keep all
                 df['district_clean'] = df['district_name'].astype(str).str.strip().str.title()
                 self.df_msme = df
                 print(f"[Advisory Engine] Loaded {len(df)} district MSME records successfully.")
@@ -123,7 +141,30 @@ class AdvisoryEngine:
             self.df_msme = pd.DataFrame()
 
     def get_district_stats(self, district: str) -> Dict[str, Any]:
-        """Fetch MSME statistics for a specific district matching district_msme_final.csv"""
+        """Fetch MSME statistics, prioritizing database queries with CSV fallback"""
+        try:
+            db = SessionLocal()
+            try:
+                d_record = db.query(DistrictMSME).filter(
+                    DistrictMSME.district_name.ilike(district.strip())
+                ).first()
+                if d_record:
+                    return {
+                        "district_name": d_record.district_name,
+                        "state_name": d_record.state_name,
+                        "micro": d_record.micro,
+                        "small": d_record.small,
+                        "medium": d_record.medium,
+                        "total": d_record.total,
+                        "competition": d_record.competition,
+                        "opportunity_score": d_record.opportunity_score
+                    }
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"[Advisory DB Lookup Fallback] {e}")
+
+        # Fallback to in-memory DataFrame
         if self.df_msme is not None and not self.df_msme.empty:
             mask = self.df_msme['district_clean'].str.lower() == district.strip().lower()
             sub = self.df_msme[mask]
@@ -136,9 +177,11 @@ class AdvisoryEngine:
                     "small": int(row.get('small', 150)),
                     "medium": int(row.get('medium', 5)),
                     "total": int(row.get('total', 25155)),
-                    "competition": str(row.get('competition', 'Medium'))
+                    "competition": str(row.get('competition', 'Medium')),
+                    "opportunity_score": 75.0
                 }
-        # Fallback default statistics
+
+        # Safe defaults
         return {
             "district_name": district.title(),
             "state_name": "Telangana",
@@ -146,64 +189,62 @@ class AdvisoryEngine:
             "small": 180,
             "medium": 6,
             "total": 28636,
-            "competition": "Medium"
+            "competition": "Medium",
+            "opportunity_score": 75.0
         }
 
     def analyze_business(self, req: AnalyzeBusinessRequest) -> AnalyzeBusinessResponse:
         """
-        Generate hyper-local business recommendations, opportunity index,
-        and SWOT reports for the given district and parameters.
+        Generate grounded hyper-local business recommendations, opportunity index,
+        and SWOT reports utilizing real GIS radius density and capital leverage.
         """
         district_stats = self.get_district_stats(req.district)
-        comp_level = district_stats["competition"]
-        total_msme = district_stats["total"]
+        comp_level = district_stats.get("competition", "Medium")
+        total_msme = district_stats.get("total", 25000)
 
-                # ==========================================================
-        # Dynamic District + Mandal + Village Scoring Engine
-        # ==========================================================
-
-        msme_factor = min(total_msme / 250000, 1.0)
-
-        base_opp = 90 - (msme_factor * 28)
-        base_comp = 25 + (msme_factor * 60)
-        base_risk = 18 + (msme_factor * 24)
+        # Baseline scores calculated from district MSME saturation
+        msme_factor = min(total_msme / 250000.0, 1.0)
+        base_opp = 90.0 - (msme_factor * 26.0)
+        base_comp = 25.0 + (msme_factor * 55.0)
+        base_risk = 18.0 + (msme_factor * 22.0)
 
         if comp_level.lower() == "low":
-            base_opp += 4
-            base_comp -= 6
-            base_risk -= 3
-
+            base_opp += 6.0
+            base_comp -= 8.0
+            base_risk -= 4.0
         elif comp_level.lower() == "high":
-            base_opp -= 4
-            base_comp += 6
-            base_risk += 3
+            base_opp -= 6.0
+            base_comp += 8.0
+            base_risk += 4.0
 
-        mandal_name = getattr(req, "mandal", "") or ""
-
-        if mandal_name:
-            mandal_seed = sum(ord(c) for c in mandal_name)
-            mandal_modifier = (mandal_seed % 11) - 5
-
-            base_opp += mandal_modifier * 0.8
-            base_comp -= mandal_modifier * 0.5
-            base_risk -= mandal_modifier * 0.3
-
-        village_name = getattr(req, "village", "") or ""
-
+        # Grounded GIS Spatial Metric Modifier (Replacing old ASCII string hash)
+        village_name = req.village or ""
+        nearby_villages_count = 0
         if village_name:
-            village_seed = sum(ord(c) for c in village_name)
-            village_modifier = (village_seed % 15) - 7
+            try:
+                rad_info = geo_engine.radius_search(
+                    district=req.district,
+                    village_name=village_name,
+                    radius_km=10.0
+                )
+                nearby_villages_count = rad_info.nearby_villages_count
+                # High neighboring village density indicates larger trade catchment area
+                if nearby_villages_count >= 15:
+                    base_opp += 4.0
+                    base_risk -= 2.0
+                elif nearby_villages_count >= 8:
+                    base_opp += 2.0
+                else:
+                    base_opp -= 2.0  # Remote isolated habitation
+            except Exception:
+                pass
 
-            base_opp += village_modifier * 0.7
-            base_comp -= village_modifier * 0.4
-            base_risk -= village_modifier * 0.25
+        # Margin Capital Leverage Factor
+        capital_factor = min(req.margin_capital / 500000.0, 1.0)
+        base_opp += capital_factor * 3.5
+        base_risk -= capital_factor * 2.5
 
-        capital_factor = min(req.margin_capital / 500000, 1.0)
-
-        base_opp += capital_factor * 3
-        base_risk -= capital_factor * 2
-
-        base_opp = round(max(55.0, min(95.0, base_opp)), 1)
+        base_opp = round(max(55.0, min(96.0, base_opp)), 1)
         base_comp = round(max(15.0, min(90.0, base_comp)), 1)
         base_risk = round(max(10.0, min(70.0, base_risk)), 1)
 
@@ -213,28 +254,31 @@ class AdvisoryEngine:
         rank = 1
 
         for item in ENTERPRISE_CATALOG:
-            # Filter by category if user requested specific category
+            # Category filter
             if req.business_category and req.business_category.lower() not in ["all", "any", ""]:
-                if req.business_category.lower() not in item["category"].lower() and req.business_category.lower() not in item["title"].lower():
+                cat_filter = req.business_category.lower()
+                if cat_filter not in item["category"].lower() and cat_filter not in item["title"].lower():
                     continue
 
-            # Calculate tailored scores
-            investment = max(item["base_investment"], project_capital * 0.75)
-            # Cap investment at project cost
-            if investment > project_capital * 1.2:
+            # Investment sizing
+            investment = max(item["base_investment"], project_capital * 0.70)
+            if investment > project_capital * 1.25:
                 investment = project_capital
 
             est_revenue = investment * (item["margin_pct"] / 100.0) * 2.2
-            opp_score = round(min(98.0, max(55.0, base_opp + (item["margin_pct"] * 0.3) - (rank * 1.5))), 1)
-            comp_score = round(min(90.0, max(18.0, base_comp + (rank * 1.8))), 1)
-            risk_score = round(min(80.0, max(15.0, base_risk + (investment / 1000000.0) * 2.0)), 1)
+            opp_score = round(min(98.0, max(55.0, base_opp + (item["margin_pct"] * 0.25) - (rank * 1.2))), 1)
+            comp_score = round(min(90.0, max(18.0, base_comp + (rank * 1.5))), 1)
+            risk_score = round(min(80.0, max(15.0, base_risk + (investment / 1000000.0) * 1.8)), 1)
 
+            # Generate localized SWOT
             swot_data = generate_swot(
                 business_title=item["title"],
                 business_category=item["category"],
                 district=req.district,
                 competition_level=comp_level,
-                margin_capital=req.margin_capital
+                margin_capital=req.margin_capital,
+                mandal=getattr(req, "mandal", "") or "",
+                village=req.village or ""
             )
 
             recommendations.append(
@@ -256,10 +300,18 @@ class AdvisoryEngine:
             if rank > 6:
                 break
 
-        # If no recommendation matched filter, fallback to top 3
+        # Fallback to top 3 enterprises if no category match
         if not recommendations:
             for idx, item in enumerate(ENTERPRISE_CATALOG[:3]):
-                swot_data = generate_swot(item["title"], item["category"], req.district, comp_level, req.margin_capital)
+                swot_data = generate_swot(
+                    business_title=item["title"],
+                    business_category=item["category"],
+                    district=req.district,
+                    competition_level=comp_level,
+                    margin_capital=req.margin_capital,
+                    mandal=getattr(req, "mandal", "") or "",
+                    village=req.village or ""
+                )
                 recommendations.append(
                     BusinessRecommendation(
                         rank=idx + 1,
@@ -277,9 +329,9 @@ class AdvisoryEngine:
                 )
 
         # Verdict
-        if base_opp >= 80:
+        if base_opp >= 82:
             verdict = "High Market Viability: Favorable local demand with strong concessional credit headroom."
-        elif base_opp >= 70:
+        elif base_opp >= 72:
             verdict = "Moderately High Feasibility: Sustainable business environment with regular monitoring."
         else:
             verdict = "Competitive Market: Focus on differentiation, quality branding, and radius expansion."

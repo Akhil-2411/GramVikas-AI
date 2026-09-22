@@ -36,7 +36,8 @@ async def lifespan(app: FastAPI):
                     email="admin@gramvikas.gov.in",
                     password_hash=hash_password("Admin@1234"),
                     role="admin",
-                    language="English"
+                    language="English",
+                    phone="+91 94400 11223"
                 )
                 db.add(admin_user)
             
@@ -47,7 +48,8 @@ async def lifespan(app: FastAPI):
                     email="demo@gramvikas.ai",
                     password_hash=hash_password("Demo@1234"),
                     role="entrepreneur",
-                    language="English"
+                    language="English",
+                    phone="+91 98480 22334"
                 )
                 db.add(demo)
             db.commit()

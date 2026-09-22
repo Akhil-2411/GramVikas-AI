@@ -86,3 +86,30 @@ def test_scheme_router():
     schemes_res = recommend_schemes(gender="Female", category="SC", budget=1000000.0)
     assert schemes_res.total_count > 0
     assert schemes_res.top_recommended is not None
+
+def test_dynamic_swot_scores():
+    """Verify SWOT analysis generates 4 dynamic dimension scores between 0 and 100"""
+    swot = generate_swot("Cold-Pressed Oil Unit", "Food Processing", "Adilabad", "Medium", 100000.0)
+    assert swot.opportunity_score is not None and 50.0 <= swot.opportunity_score <= 100.0
+    assert swot.competition_score is not None and 0.0 <= swot.competition_score <= 100.0
+    assert swot.risk_score is not None and 0.0 <= swot.risk_score <= 100.0
+    assert swot.financial_viability_score is not None and 40.0 <= swot.financial_viability_score <= 100.0
+
+def test_auth_token_crypto_and_reset():
+    """Verify password hashing, JWT creation/decoding, and reset token crypto"""
+    from app.core.security import hash_password, verify_password, create_access_token, decode_access_token, create_reset_token, verify_reset_token
+    pwd = "SecurePassword@2026"
+    h = hash_password(pwd)
+    assert verify_password(pwd, h) is True
+    assert verify_password("WrongPassword", h) is False
+
+    token = create_access_token({"sub": "user-uuid-123", "role": "entrepreneur"})
+    payload = decode_access_token(token)
+    assert payload is not None
+    assert payload["sub"] == "user-uuid-123"
+    assert payload["role"] == "entrepreneur"
+
+    reset_tok = create_reset_token("test@gramvikas.ai")
+    verified_email = verify_reset_token(reset_tok)
+    assert verified_email == "test@gramvikas.ai"
+

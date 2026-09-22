@@ -10,20 +10,49 @@ import {
   MapPin,
   CheckCircle2,
   Save,
-  Building2
+  Building2,
+  AlertCircle
 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
+import { updateUserProfile } from "@/lib/api";
 
 export default function ProfilePage() {
-  const { user, district, language, setLanguage } = useAppStore();
+  const { user, district, language, setLanguage, updateUserProfile: storeUpdateUser } = useAppStore();
   const [fullName, setFullName] = useState(user?.full_name || "Ramesh Kumar");
   const [phone, setPhone] = useState(user?.phone || "+91 98480 22334");
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setLoading(true);
+    setError("");
+
+    try {
+      const updated = await updateUserProfile({
+        full_name: fullName,
+        phone,
+        language,
+      });
+      storeUpdateUser(updated);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: any) {
+      // If offline, still update client store gracefully
+      storeUpdateUser({
+        id: user?.id || "local-user",
+        full_name: fullName,
+        email: user?.email || "demo@gramvikas.ai",
+        role: user?.role || "entrepreneur",
+        language,
+        phone,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -39,6 +68,13 @@ export default function ProfilePage() {
           <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             <span>Profile settings updated successfully!</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600" />
+            <span>{error}</span>
           </div>
         )}
 
@@ -115,9 +151,10 @@ export default function ProfilePage() {
           <div className="pt-4 border-t border-slate-100 flex justify-end">
             <button
               type="submit"
+              disabled={loading}
               className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow transition"
             >
-              <Save className="w-4 h-4" /> Save Profile Changes
+              <Save className="w-4 h-4" /> {loading ? "Saving..." : "Save Profile Changes"}
             </button>
           </div>
         </form>

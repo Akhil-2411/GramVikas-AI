@@ -65,6 +65,7 @@ export default function BusinessAdvisoryPage() {
     try {
       const data = await getBusinessRecommendations({
         district,
+        mandal,
         village,
         business_category: businessCategory,
         margin_capital: marginCapital,
@@ -81,7 +82,7 @@ export default function BusinessAdvisoryPage() {
 
   useEffect(() => {
     runAnalysis();
-  }, [district, village, businessCategory, marginCapital]);
+  }, [district, mandal, village, businessCategory, marginCapital]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">

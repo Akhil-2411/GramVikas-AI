@@ -2,21 +2,33 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.core.config import settings
 
-# Handle SQLite vs PostgreSQL engine options
-connect_args = {}
-if settings.DATABASE_URL.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
-    engine = create_engine(
-        settings.DATABASE_URL,
-        connect_args=connect_args,
-        echo=False
-    )
+from app.core.config import settings, BASE_DIR
+
+# Handle SQLite vs PostgreSQL engine options with automatic fallback
+engine = None
+if settings.DATABASE_URL.startswith("postgresql"):
+    try:
+        engine = create_engine(
+            settings.DATABASE_URL,
+            pool_pre_ping=True,
+            pool_size=10,
+            max_overflow=20,
+            echo=False
+        )
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as e:
+        print(f"[DB Fallback] PostgreSQL unavailable ({e}). Using SQLite fallback.")
+        sqlite_url = f"sqlite:///{BASE_DIR}/gramvikas.db"
+        engine = create_engine(
+            sqlite_url,
+            connect_args={"check_same_thread": False},
+            echo=False
+        )
 else:
     engine = create_engine(
         settings.DATABASE_URL,
-        pool_pre_ping=True,
-        pool_size=10,
-        max_overflow=20,
+        connect_args={"check_same_thread": False},
         echo=False
     )
 

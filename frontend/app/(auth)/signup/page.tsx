@@ -15,52 +15,29 @@ export default function SignupPage() {
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState("entrepreneur");
   const [language, setLanguage] = useState("English");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"}/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          full_name: fullName,
-          email,
-          password,
-          phone,
-          role,
-          language,
-        }),
+      const { signupUser } = await import("@/lib/api");
+      const data = await signupUser({
+        full_name: fullName,
+        email,
+        password,
+        phone,
+        role,
+        language,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        setAuth(data.access_token, data.user);
-        router.push("/dashboard");
-      } else {
-        // Fallback for preview
-        setAuth("mock-token", {
-          id: "new-user-1",
-          full_name: fullName || "Entrepreneur",
-          email: email,
-          role: role as any,
-          language,
-          phone,
-        });
-        router.push("/dashboard");
-      }
-    } catch (err) {
-      setAuth("mock-token", {
-        id: "new-user-1",
-        full_name: fullName || "Entrepreneur",
-        email: email,
-        role: role as any,
-        language,
-        phone,
-      });
+      setAuth(data.access_token, data.user);
       router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.message || "Failed to create account. Please check your information.");
     } finally {
       setLoading(false);
     }
@@ -73,11 +50,17 @@ export default function SignupPage() {
           <Building2 className="w-6 h-6" />
         </div>
         <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Create Entrepreneur Account</h2>
-        <p className="text-xs text-slate-500 mt-1">Smart India Hackathon 2026 | MoSJE Concessional Advisory</p>
+        <p className="text-xs text-slate-500 mt-1">Access AI advisory and 90% concessional credit structuring</p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
         <div className="bg-white py-8 px-6 shadow-xl shadow-slate-200/50 rounded-2xl border border-slate-200 sm:px-10">
+          {error && (
+            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl">
+              {error}
+            </div>
+          )}
+
           <form className="space-y-4" onSubmit={handleSignup}>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>

@@ -32,6 +32,22 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: UserResponse
 
+class UserProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    language: Optional[str] = None
+
+class PasswordResetRequest(BaseModel):
+    email: str
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=6)
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str = Field(..., min_length=6)
+
 # ================= BUSINESS ADVISORY SCHEMAS =================
 class AnalyzeBusinessRequest(BaseModel):
     district: str
@@ -51,6 +67,15 @@ class SWOTData(BaseModel):
     weaknesses: List[SWOTItem]
     opportunities: List[SWOTItem]
     threats: List[SWOTItem]
+    opportunity_score: Optional[float] = 84.0
+    competition_score: Optional[float] = 42.0
+    risk_score: Optional[float] = 28.0
+    financial_viability_score: Optional[float] = 88.0
+    title: Optional[str] = None
+    district: Optional[str] = None
+    village: Optional[str] = None
+    category: Optional[str] = None
+    summary: Optional[str] = None
 
 class BusinessRecommendation(BaseModel):
     rank: int

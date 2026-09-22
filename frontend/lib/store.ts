@@ -16,6 +16,7 @@ interface AppState {
   user: UserProfile | null;
   isAuthenticated: boolean;
   setAuth: (token: string, user: UserProfile) => void;
+  updateUserProfile: (user: UserProfile) => void;
   logout: () => void;
 
   // Active Context
@@ -42,20 +43,66 @@ interface AppState {
   setSearchQuery: (query: string) => void;
 }
 
+// Initial state reading from localStorage if in browser
+const getInitialAuth = () => {
+  if (typeof window !== "undefined") {
+    try {
+      const savedToken = localStorage.getItem("gramvikas_token");
+      const savedUser = localStorage.getItem("gramvikas_user");
+      if (savedToken && savedUser) {
+        return {
+          token: savedToken,
+          user: JSON.parse(savedUser) as UserProfile,
+          isAuthenticated: true,
+        };
+      }
+    } catch {
+      // Fallback
+    }
+  }
+  // Default session for instant evaluation if no saved credentials
+  return {
+    token: null,
+    user: null,
+    isAuthenticated: false,
+  };
+};
+
+const initialAuth = getInitialAuth();
+
 export const useAppStore = create<AppState>((set) => ({
-  // Default Demo Entrepreneur Auth
-  token: "demo-jwt-token-sih2026",
-  user: {
-    id: "demo-user-1",
-    full_name: "Ramesh Kumar",
-    email: "ramesh.kumar@gramvikas.ai",
-    role: "entrepreneur",
-    language: "English",
-    phone: "+91 98480 22334"
+  token: initialAuth.token,
+  user: initialAuth.user,
+  isAuthenticated: initialAuth.isAuthenticated,
+
+  setAuth: (token, user) => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("gramvikas_token", token);
+        localStorage.setItem("gramvikas_user", JSON.stringify(user));
+      } catch {}
+    }
+    set({ token, user, isAuthenticated: true });
   },
-  isAuthenticated: true,
-  setAuth: (token, user) => set({ token, user, isAuthenticated: true }),
-  logout: () => set({ token: null, user: null, isAuthenticated: false }),
+
+  updateUserProfile: (user) => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("gramvikas_user", JSON.stringify(user));
+      } catch {}
+    }
+    set({ user });
+  },
+
+  logout: () => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("gramvikas_token");
+        localStorage.removeItem("gramvikas_user");
+      } catch {}
+    }
+    set({ token: null, user: null, isAuthenticated: false });
+  },
 
   // Default Initial Location: Adilabad, Tamsi, Tamsi-B
   district: "Adilabad",
